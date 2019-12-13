@@ -1,29 +1,145 @@
 import javax.management.BadStringOperationException;
+
+import org.jnativehook.GlobalScreen;
+import org.jnativehook.NativeHookException;
+import org.jnativehook.keyboard.NativeKeyEvent;
+import org.jnativehook.keyboard.NativeKeyListener;
+
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.nio.charset.UnsupportedCharsetException;
 import java.io.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-public class main {
+import static java.lang.Character.isLetter;
 
-    static wordContainer container = new wordContainer("C:\\Users\\herberac\\IdeaProjects\\spellchecker\\src\\words.txt");
+public class main implements NativeKeyListener {
 
-    public static void main(String[] args){
-        while(true){
-            System.out.println("Enter in words to spell check. Sentences work. A-Z or a-z only (no other characters).");
-            Scanner in = new Scanner(System.in);
-            String i = in.nextLine().toLowerCase().replaceAll("[^A-Za-z]+", " ");;
-            String[] words = i.split(" ");
-            for(String w : words) {
-                try {
-                    container.wordSearch(w);
-                } catch (BadStringOperationException e) {
-                    e.printStackTrace();
+    static wordContainer container = new wordContainer("C:\\Users\\herberac\\IdeaProjects\\spellchecker\\spelling-checker\\src\\words.txt");
+
+    private static String c = "";
+    private static String allWords = "";
+    private static char in = '\0';
+private static boolean suggest = false;
+
+
+    public static void main(String[] args) throws IOException{
+        try {
+
+            Logger logger = Logger.getLogger(GlobalScreen.class.getPackage().getName());
+            logger.setLevel(Level.OFF);
+
+            logger.setUseParentHandlers(false);
+            GlobalScreen.registerNativeHook();
+        }
+        catch (NativeHookException ex) {
+            System.err.println("There was a problem registering the native hook.");
+            System.err.println(ex.getMessage());
+
+            System.exit(1);
+        }
+
+        GlobalScreen.addNativeKeyListener(new main());
+
+        if(args.length > 0 && args[0].indexOf("r") > -1) {
+            suggest = true;
+            System.out.println("Enter in characters to get word recommendations. Sentences work. A-Z or a-z only (no other characters).");
+            while (true) ;
+        }
+        else
+            while(true){
+                System.out.println("Enter in words to spell check. Sentences work. A-Z or a-z only (no other characters).");
+                Scanner in = new Scanner(System.in);
+                String i = in.nextLine().toLowerCase().replaceAll("[^A-Za-z]+", " ");
+                String[] words = i.split(" ");
+                for(String w : words) {
+                    try {
+                        container.wordSearch(w);
+                    } catch (BadStringOperationException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
+    }
+
+    @Override
+    public void nativeKeyTyped(NativeKeyEvent e) {
+
+    }
+
+    @Override
+    public void nativeKeyPressed(NativeKeyEvent e) {
+        ArrayList<Integer> letters = new ArrayList<>();
+        int[] l = {NativeKeyEvent.VC_A, NativeKeyEvent.VC_B, NativeKeyEvent.VC_C, NativeKeyEvent.VC_D, NativeKeyEvent.VC_E, NativeKeyEvent.VC_F, NativeKeyEvent.VC_G, NativeKeyEvent.VC_H, NativeKeyEvent.VC_I, NativeKeyEvent.VC_J, NativeKeyEvent.VC_K, NativeKeyEvent.VC_L, NativeKeyEvent.VC_M, NativeKeyEvent.VC_N, NativeKeyEvent.VC_O, NativeKeyEvent.VC_P, NativeKeyEvent.VC_Q, NativeKeyEvent.VC_R, NativeKeyEvent.VC_S, NativeKeyEvent.VC_T, NativeKeyEvent.VC_U, NativeKeyEvent.VC_V, NativeKeyEvent.VC_W, NativeKeyEvent.VC_X, NativeKeyEvent.VC_Y, NativeKeyEvent.VC_Z};
+
+        for(int g : l){
+            letters.add(g);
         }
+        if (e.getKeyCode() == NativeKeyEvent.VC_ESCAPE) {
+            try {
+                GlobalScreen.unregisterNativeHook();
+                System.exit(0);
+            } catch (NativeHookException ex) {
+                ex.printStackTrace();
+            }
+        }
+        //in = e.getKeyText(e.getKeyCode()).toLowerCase().charAt(0);
+        if(suggest) {
+            //System.out.println("KeyPress " + e.getKeyText(e.getKeyCode()));
+            if(!e.isActionKey() && letters.indexOf(e.getKeyCode()) > -1) {
+                c += e.getKeyText(e.getKeyCode()).toLowerCase().charAt(0);
+                allWords += e.getKeyText(e.getKeyCode()).toLowerCase().charAt(0);
+                String[] s = container.getSuggestions(c.toLowerCase().replaceAll("[^A-Za-z]+", " "));
+                if(s != null && s.length > 0)
+                {
+                    System.out.print("\nSuggestions: ");
+                    for(int j = 0; j < s.length && j < 5; j++)
+                        System.out.print(" " + s[j] + " ");
+                } else System.out.print("\nNo suggestions found!!!");
+                System.out.print("\n\n"+c);
+            }
+            else if (e.getKeyCode() == NativeKeyEvent.VC_ENTER || e.getKeyCode() == NativeKeyEvent.VC_SPACE || e.getKeyCode() == NativeKeyEvent.VC_TAB) {
+                if (e.getKeyCode() == NativeKeyEvent.VC_SPACE){
+                    c += " ";
+                    allWords += " ";
+                }
+                String[] words = c.toLowerCase().replaceAll("[^A-Za-z]+", " ").split(" ");
+                for (String w : words) {
+                    try {
+                        container.wordSearch(w);
+                    } catch (BadStringOperationException b) {
+                        b.printStackTrace();
+                    }
+                }
+                if (e.getKeyCode() == NativeKeyEvent.VC_ENTER) {
+                    System.out.println(allWords + "\nEnter in characters to get word recommendations. Sentences work. A-Z or a-z only (no other characters).");
+                }
+                c = "";
+
+            } else if(!e.isActionKey()){
+                allWords += e.getKeyText(e.getKeyCode()).toLowerCase().charAt(0);
+                String[] words = c.toLowerCase().replaceAll("[^A-Za-z]+", " ").split(" ");
+                for(String w : words) {
+                    try {
+                        container.wordSearch(w);
+                    } catch (BadStringOperationException b) {
+                        b.printStackTrace();
+                    }
+                }
+                c = "";
+            }
+            in = '\0';
+        }
+    }
+
+    @Override
+    public void nativeKeyReleased(NativeKeyEvent e) {
+
     }
 }
 
@@ -144,6 +260,87 @@ class wordContainer {
         return bestNode.toString();
     }
 
+    public String[] getSuggestions(String s) {
+        Node n = root;
+        Node prevNode = null;
+        int depth = 0;
+        try {
+
+            for (char c : s.toCharArray()) {
+                depth++;
+                prevNode = n;
+                n = n.getNode(c);
+                if (n == null) {
+                    //System.out.println("Unknown word " + s);
+                    //System.out.println("Did you mean: " + findSuggestion(new Node(prevNode, prevNode.depth+1), s, depth) + "?");
+                    break;
+                }
+            }
+            if (prevNode == null || n == null || n.getChar() == '\0') return null;
+            /*if (n != null && !n.isEnd()) {
+                System.out.println("Unknown word " + s);
+                System.out.println("Did you mean: " + findSuggestion(n, s, depth) + "?");
+            }
+             */
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
+
+        //for the remaining chars in s:
+        //1. search in all next nodes
+        //2. save number of instances where a char exists and is in remaining part of string
+        //3. go to next node. repeat until remaining chars are taken care of. Then select first char with the highest instance count to end of word.
+        HashMap<Node, Integer> priority = new HashMap<Node, Integer>();
+
+        boolean reverseCheck = true;
+
+        Node tempParent = n.getParentNode();
+
+        //System.out.println(n);
+        //check if entered word is made up of any legit words. If so, get closest word from the end to beginning, starting from char a to z.
+        int priorityI = 0;
+        while(reverseCheck && tempParent.getChar()!='\0'){
+            for(int i = 0; i < 26; i++){
+                Node temp2 = tempParent.getNodeI(i);
+                if(temp2 != null && temp2.isEnd()){
+                    priority.put(temp2, priorityI);
+                    reverseCheck = false;
+                    break;
+                }
+            }
+            tempParent = tempParent.getParentNode();
+            priorityI++;
+        }
+
+        //check for last known char combination with legit words, then search thru its tree, finding words that match the incorrect word the best in terms of char count.
+        priorityI = 0;
+        reverseCheck = true;
+        /*while(reverseCheck){
+            for(int i = 0; i < 26; i++){
+                if(n != null || n.getNodeI(i) != null){
+                    reverseCheck = false;
+                    break;
+                }
+            }
+            n = n.getParentNode();
+            //priorityI--;
+        }*/
+        //given a parent node, return all child nodes that are ends, along with their weights
+        priority.putAll(getChildEnds(n, priorityI, n.depth, 0, s));
+        if(priority.isEmpty()) return null;
+
+        String[] r = new String[priority.size()];
+        ArrayList<Map.Entry<Node, Integer>> L = new ArrayList<>(priority.entrySet());
+        L.sort(Map.Entry.comparingByValue());
+        //Map.Entry<Node, Integer>[] ns = (Map.Entry<Node, Integer>[])L.toArray();
+        for(int i = L.size()-1; i >= 0; i--){
+            r[L.size()-1-i] = L.get(i).getKey().toString();
+        }
+        return r;
+    }
+
+
     private HashMap<Node, Integer> getChildEnds(Node n, int depth, int initPos, int badCharCount, String s){
         HashMap<Node, Integer> temp = new HashMap<>();
         for(int i = 0; i < 26; i++){
@@ -168,18 +365,25 @@ class wordContainer {
         private char c = '\0';
         private boolean isEnd = false;
         private int depth = 0;
+        int wordCount = 0;
 
         public Node(char c, Node parentNode, int depth, boolean isEnd){
             this.c = c;
             this.parentNode = parentNode;
             this.depth = depth;
             this.isEnd = isEnd;
+            Node temp = parentNode;
+            while(temp != null && temp.getChar() != '\0'){
+                temp.wordCount++;
+                temp = temp.parentNode;
+            }
         }
 
         public Node(Node parentNode, int depth){
             this.parentNode = parentNode;
             this.depth = depth;
         }
+
 
         public Node addNode(char node, boolean isEnd){
             //if(node <= 'Z' && node >= 'A') node = (char)(node + ('a'-'A'));
