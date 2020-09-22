@@ -20,12 +20,12 @@ import static java.lang.Character.isLetter;
 
 public class main implements NativeKeyListener {
 
-    static wordContainer container = new wordContainer("C:\\Users\\herberac\\IdeaProjects\\spellchecker\\spelling-checker\\src\\words.txt");
+    static wordContainer container = new wordContainer(System.getProperty("user.dir") + "\\src\\words.txt");
 
     private static String c = "";
     private static String allWords = "";
     private static char in = '\0';
-private static boolean suggest = false;
+    private static boolean suggest = false;
 
 
     public static void main(String[] args) throws IOException{
